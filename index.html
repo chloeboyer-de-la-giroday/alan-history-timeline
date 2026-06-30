@@ -52,15 +52,26 @@ body { font-family: var(--font); background: #EDEDF0; color: var(--ink); min-hei
 .nav-notion-hint { margin-left: auto; font-size: 11.5px; color: var(--ink-faint); font-weight: 500; }
 
 /* \u2500\u2500 STAGE \u2500\u2500 */
-.stage { padding: 28px 24px; display: flex; align-items: flex-start; justify-content: center; }
+.stage {
+  padding: 24px;
+  display: flex; align-items: flex-start; justify-content: center;
+}
+/* The scaler keeps the slide rendered at a fixed design size and scales it to fit. */
+.year-card-scaler {
+  width: 100%;
+  display: flex; align-items: flex-start; justify-content: center;
+  overflow: hidden;
+}
 
 /* \u2500\u2500 YEAR CARD \u2500\u2500 */
 .year-card {
   background: var(--cream);
   border-radius: 22px;
-  width: 100%; max-width: 1360px;
+  width: 1300px;          /* fixed design width \u2014 scaled by JS */
+  flex-shrink: 0;
   box-shadow: var(--shadow-md);
   overflow: hidden;
+  transform-origin: top center;
 }
 
 /* \u2500\u2500 HEADER \u2500\u2500 */
@@ -68,6 +79,8 @@ body { font-family: var(--font); background: #EDEDF0; color: var(--ink); min-hei
   padding: 28px 52px 22px;
   display: flex; align-items: flex-start; justify-content: space-between; gap: 24px;
   border-bottom: 1px solid rgba(230,230,235,0.75);
+  position: relative;
+  min-height: 170px;
 }
 .year-eyebrow {
   font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
@@ -83,10 +96,11 @@ body { font-family: var(--font); background: #EDEDF0; color: var(--ink); min-hei
 }
 .card-top { position: relative; }
 .marmot-wrap {
-  position: absolute; top: 28px; right: 52px; bottom: 0;
-  width: 280px;
+  position: absolute; top: 12px; right: 52px; bottom: 6px;
+  width: 240px;
+  pointer-events: none;
 }
-.marmot-wrap.era-a { width: 185px; }
+.marmot-wrap.era-a { width: 150px; }
 .marmot-img {
   position: absolute; bottom: 0; right: 0;
   max-width: 100%; max-height: 100%; width: auto; height: auto;
@@ -220,7 +234,9 @@ body { font-family: var(--font); background: #EDEDF0; color: var(--ink); min-hei
 </nav>
 
 <div class="stage">
-  <div class="year-card" id="year-card"></div>
+  <div class="year-card-scaler" id="year-card-scaler">
+    <div class="year-card" id="year-card"></div>
+  </div>
 </div>
 
 <script>
@@ -479,12 +495,12 @@ function renderYear(yr) {
           <div class="year-number">${yr}</div>
           <div class="year-tagline">${data.tagline}</div>
         </div>
+        <div class="marmot-wrap era-${eraKey}">
+          <img class="marmot-img" src="${era.big}" alt="Alan marmot" />
+        </div>
       </div>
       <div class="metrics-eoy-note">End-of-year (EOY) figures${String(yr) === '2016' ? '' : ' \u00B7 growth vs. prior year-end'}</div>
       <div class="metrics-row" id="metrics-row"></div>
-      <div class="marmot-wrap era-${eraKey}">
-        <img class="marmot-img" src="${era.big}" alt="Alan marmot" />
-      </div>
     </div>
     <div class="timeline-wrap" style="position:relative;">
       <div id="timeline-area"></div>
@@ -578,8 +594,51 @@ function renderYear(yr) {
 
       area.appendChild(cardEl);
     });
+
+    // After the timeline is laid out, fit the whole card into the viewport.
+    fitYearCard();
   });
 }
+
+// ── AUTO-FIT ─────────────────────────────────────────────────────────
+// Scales the year card so the entire slide fits the available viewport
+// (both width and height) without inner scrolling. Caps upscale at 1.15×
+// so it doesn't blow up on huge embeds.
+function fitYearCard() {
+  const scaler = document.getElementById('year-card-scaler');
+  const card   = document.getElementById('year-card');
+  if (!scaler || !card) return;
+
+  // Reset any previous transform so we measure the natural size.
+  card.style.transform = 'none';
+
+  // Measure natural dimensions.
+  const cardW = card.offsetWidth   || 1300;
+  const cardH = card.scrollHeight  || card.offsetHeight;
+
+  // Available space inside the scaler.
+  const availW = scaler.clientWidth;
+  // Available height = viewport - nav - stage padding - a tiny safety margin.
+  const nav    = document.querySelector('.nav');
+  const navH   = nav ? nav.offsetHeight : 60;
+  const padY   = 48;  // stage vertical padding (24 top + 24 bottom)
+  const availH = Math.max(300, window.innerHeight - navH - padY - 8);
+
+  // Pick the smaller scale; allow a small upscale on very large embeds.
+  const s = Math.min(availW / cardW, availH / cardH, 1.15);
+
+  card.style.transform = `scale(${s})`;
+  // Give the scaler the post-scale height so the page itself doesn't
+  // need to scroll either.
+  scaler.style.height = (cardH * s) + 'px';
+}
+
+// Re-fit on window resize (debounced).
+let _fitTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(_fitTimer);
+  _fitTimer = setTimeout(fitYearCard, 80);
+});
 
 // \u2500\u2500 YEAR BUTTONS \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 const btnContainer = document.getElementById('year-buttons');
